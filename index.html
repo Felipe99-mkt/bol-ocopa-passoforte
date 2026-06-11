@@ -320,7 +320,7 @@ hr.div{border:none;border-top:1px solid var(--borda);margin:24px 0;}
   <!-- PALPITES -->
   <div id="view-palpites" class="view active">
     <div class="info-box">
-      <strong>Classificação de grupos:</strong> 1º exato=<strong>+3pts</strong> · 2º exato=<strong>+2pts</strong> · Acertou quem passa (posição errada)=<strong>+1pt</strong><br>
+      <strong>Classificação de grupos:</strong> 1º exato=<strong>+3pts</strong> · 2º exato=<strong>+2pts</strong> · 3º exato=<strong>+1pt</strong> · Acertou quem passa (posição errada)=<strong>+1pt</strong><br>
       <strong>Placar dos jogos:</strong> Acertou vencedor/empate=<strong>+2pts</strong> · Acertou placar exato=<strong>+5pts</strong> (inclui o bônus de vencedor)<br>
       <strong>Especiais:</strong> Campeão=<strong>+10pts</strong> · Vice=<strong>+5pts</strong> · Artilheiro=<strong>+5pts</strong> · Surpresa=<strong>+4pts</strong>
     </div>
@@ -392,6 +392,13 @@ hr.div{border:none;border-top:1px solid var(--borda);margin:24px 0;}
     <p style="color:var(--cinza);font-size:.78rem;margin-bottom:14px">Preencha o nome das seleções conforme os confrontos forem definidos, depois os placares.</p>
     <div class="admin-jogos-grid" id="admin-jogos-mata-res"></div>
 
+    <hr class="div">
+
+    <!-- ESPECIAIS -->
+    <div class="sec-title">Resultados — Especiais</div>
+    <p style="color:var(--cinza);font-size:.78rem;margin-bottom:14px">Preencha conforme a Copa definir: campeão, vice, país do artilheiro e surpresa.</p>
+    <div class="esp-grid" id="admin-esp-res"></div>
+
     <div style="text-align:center;margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
       <button class="btn-verde" onclick="salvarResultados()">⚡ Salvar resultados e recalcular pontos</button>
     </div>
@@ -404,6 +411,7 @@ hr.div{border:none;border-top:1px solid var(--borda);margin:24px 0;}
       <strong>📊 Classificação de grupos</strong><br>
       • 1º lugar exato = <strong>+3 pts</strong><br>
       • 2º lugar exato = <strong>+2 pts</strong><br>
+      • 3º lugar exato = <strong>+1 pt</strong><br>
       • Acertou quem passa mas posição errada = <strong>+1 pt</strong><br>
       <br>
       <strong>⚽ Palpite de placar (grupos + mata-mata)</strong><br>
@@ -417,7 +425,7 @@ hr.div{border:none;border-top:1px solid var(--borda);margin:24px 0;}
       • Surpresa (chega nas semis) = <strong>+4 pts</strong><br>
       <br>
       <strong>📅 Copa 2026:</strong> 48 seleções · 12 grupos (A–L) · 104 jogos · 11 jun – 19 jul 2026<br>
-      <strong>🔒 Prazo de palpites:</strong> <strong>11/06/2026 às 23h59 (Brasília)</strong> — após isso, travado.<br>
+      <strong>🔒 Prazo de palpites:</strong> <strong>12/06/2026 às 23h59 (Brasília)</strong> — após isso, travado.<br>
       <strong>🥇 Empate no ranking:</strong> desempate por mais placares exatos.
     </div>
   </div>
@@ -572,7 +580,7 @@ const JOGOS_MATA_TEMPLATE = [
   // Terceiro lugar
   {id:'T1',fase:'semi',label:'Disputa 3º lugar',c:'',f:''},
   // Final
-  {id:'F1',fase:'final',label:'Final',c:'',f:''},
+  {id:'FIN1',fase:'final',label:'Final',c:'',f:''},
 ];
 
 const ESPECIAIS_DATA = [
@@ -582,9 +590,12 @@ const ESPECIAIS_DATA = [
   {id:'surpresa', emoji:'🚀', label:'Surpresa da Copa (chega nas semis)'},
 ];
 
-const ADMIN_SENHA = 'passoforte2026';
-// Deadline: 11/06/2026 23:59 BRT = 12/06/2026 02:59 UTC
-const DEADLINE = new Date('2026-06-12T02:59:00Z');
+// Hash SHA-256 da senha do admin — a senha em si não fica no fonte
+const ADMIN_HASH = 'b4def213ec8c4b7fe8997c21608012288c4f3ce48ff5a9d4550b4c3451faa03c';
+async function sha256(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+// Deadline: 12/06/2026 23:59 BRT = 13/06/2026 02:59 UTC
+const DEADLINE = new Date('2026-06-13T02:59:00Z');
+const DEADLINE_TXT = '12/06/2026 às 23h59 (Brasília)';
 
 // ══════════════════════════════════════════
 //  ESTADO
@@ -655,17 +666,18 @@ async function fazerCadastro() {
   const admS = document.getElementById('c-adm-senha').value.trim();
   if (!nome) return erroL('Informe seu nome.');
   if (senha.length<4) return erroL('Senha com mínimo 4 caracteres.');
-  if (adm && admS!==ADMIN_SENHA) return erroL('Senha de admin incorreta.');
+  if (adm && await sha256(admS)!==ADMIN_HASH) return erroL('Senha de admin incorreta.');
   const k = chave(nome);
+  const senhaHash = await sha256(senha);
   if (modoFirebase) {
     try {
       const snap = await fs.getDoc(fs.doc(db,'usuarios',k));
       if (snap.exists()) return erroL('Nome já em uso.');
-      await fs.setDoc(fs.doc(db,'usuarios',k),{nome,senha,isAdmin:adm,pontos:0,palpites:null,criadoEm:new Date().toISOString()});
+      await fs.setDoc(fs.doc(db,'usuarios',k),{nome,senhaHash,isAdmin:adm,pontos:0,palpites:null,criadoEm:new Date().toISOString()});
     } catch(e) { return erroL('Erro Firebase: '+e.message); }
   } else {
     const d=getDL(); if(d.usuarios[k]) return erroL('Nome já em uso.');
-    d.usuarios[k]={nome,senha,isAdmin:adm,pontos:0,palpites:null}; setDL(d);
+    d.usuarios[k]={nome,senhaHash,isAdmin:adm,pontos:0,palpites:null}; setDL(d);
   }
   entrarApp(nome,adm);
 }
@@ -675,18 +687,23 @@ async function fazerLogin() {
   const senha = document.getElementById('l-senha').value.trim();
   if (!nome) return erroL('Informe seu nome.');
   const k = chave(nome);
+  const h = await sha256(senha);
+  // Aceita hash (contas novas) ou texto plano (contas antigas) — e migra para hash
+  function senhaOk(u){ return u.senhaHash ? u.senhaHash===h : u.senha===senha; }
   if (modoFirebase) {
     try {
       const snap = await fs.getDoc(fs.doc(db,'usuarios',k));
       if (!snap.exists()) return erroL('Nome não encontrado.');
       const u=snap.data();
-      if (u.senha!==senha) return erroL('Senha incorreta.');
+      if (!senhaOk(u)) return erroL('Senha incorreta.');
+      if (!u.senhaHash) fs.setDoc(fs.doc(db,'usuarios',k),{senhaHash:h,senha:null},{merge:true}).catch(()=>{});
       entrarApp(u.nome,u.isAdmin||false);
     } catch(e) { return erroL('Erro: '+e.message); }
   } else {
     const d=getDL(); const u=d.usuarios[k];
     if (!u) return erroL('Nome não encontrado.');
-    if (u.senha!==senha) return erroL('Senha incorreta.');
+    if (!senhaOk(u)) return erroL('Senha incorreta.');
+    if (!u.senhaHash){ u.senhaHash=h; delete u.senha; setDL(d); }
     entrarApp(u.nome,u.isAdmin||false);
   }
 }
@@ -725,7 +742,10 @@ function mostrarLogin() { document.getElementById('form-cad').style.display='non
 // ══════════════════════════════════════════
 function prazoOk() { return new Date() <= DEADLINE; }
 
+let _temPalpite=false, _prazoTimer=null;
 function renderPrazo(temPalpite) {
+  _temPalpite=temPalpite;
+  if(!_prazoTimer) _prazoTimer=setInterval(()=>{ if(usuarioLogado) renderPrazo(_temPalpite); },60000);
   const el = document.getElementById('prazo-banner');
   const wrap = document.getElementById('palpites-wrap');
   const bwrap = document.getElementById('btn-salvar-wrap');
@@ -733,12 +753,13 @@ function renderPrazo(temPalpite) {
     const diff=DEADLINE-new Date();
     const d=Math.floor(diff/86400000),h=Math.floor((diff%86400000)/3600000),m=Math.floor((diff%3600000)/60000);
     const t=d>0?`${d}d ${h}h ${m}min`:h>0?`${h}h ${m}min`:`${m} minutos`;
-    el.innerHTML=`<div class="prazo-banner aberto"><span class="pb-icon">⏳</span><div><strong>Prazo aberto</strong> — faltam <strong>${t}</strong> para encerrar.<br><span style="opacity:.75;font-size:.78rem">Prazo final: 11/06/2026 às 23h59 (Brasília)</span></div></div>`;
+    el.innerHTML=`<div class="prazo-banner aberto"><span class="pb-icon">⏳</span><div><strong>Prazo aberto</strong> — faltam <strong>${t}</strong> para encerrar.<br><span style="opacity:.75;font-size:.78rem">Prazo final: ${DEADLINE_TXT}</span></div></div>`;
     wrap.querySelectorAll('.placar-input').forEach(i=>i.disabled=false);
     wrap.querySelectorAll('.pos-btn').forEach(b=>{ b.classList.remove('travado'); });
     wrap.querySelectorAll('.esp-card select').forEach(s=>s.disabled=false);
     wrap.classList.remove('travado-overlay');
     bwrap.style.display='block';
+    atualizarLabelsMata(); // mantém travados os jogos do mata-mata ainda sem seleções
   } else {
     el.innerHTML=temPalpite
       ?`<div class="prazo-banner encerrado"><span class="pb-icon">🔒</span><div><strong>Prazo encerrado</strong> — seus palpites estão registrados e travados.<br><span style="opacity:.75;font-size:.78rem">Abaixo você vê o que foi salvo.</span></div></div>`
@@ -769,6 +790,7 @@ function aba(nome,btn) {
 // ══════════════════════════════════════════
 function sid(s) { return s.replace(/[^a-zA-Z0-9]/g,''); }
 function esc(s) { return s.replace(/'/g,"\\'"); }
+function numPl(v) { return Math.min(20,Math.max(0,parseInt(v,10)||0)); }
 function escH(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function renderGrupos() {
@@ -856,15 +878,15 @@ function makeJogoCard(j, isMata) {
   const semSel = isMata && (!casaLabel || !foraLabel);
 
   wrap.innerHTML=`
-    <div class="jogo-card-head">${isMata ? j.label : ('Grupo '+j.g+' – '+j.id)}</div>
+    <div class="jogo-card-head">${escH(isMata ? j.label : ('Grupo '+j.g+' – '+j.id))}</div>
     <div class="jogo-row">
-      <div class="jogo-time casa">${casaFlag} ${casaNome}</div>
+      <div class="jogo-time casa">${escH(casaFlag+' '+casaNome)}</div>
       <div class="jogo-placar">
         <input type="number" class="placar-input" id="pc-${safeId}-c" min="0" max="20" placeholder="–" ${semSel?'disabled':''}>
         <span class="placar-x">×</span>
         <input type="number" class="placar-input" id="pc-${safeId}-f" min="0" max="20" placeholder="–" ${semSel?'disabled':''}>
       </div>
-      <div class="jogo-time fora">${foraNome} ${foraFlag}</div>
+      <div class="jogo-time fora">${escH(foraNome+' '+foraFlag)}</div>
     </div>`;
   return wrap;
 }
@@ -898,7 +920,7 @@ async function salvarPalpites() {
     const safeId=j.id.replace(/[^a-zA-Z0-9]/g,'_');
     const ic=document.getElementById(`pc-${safeId}-c`);
     const iif=document.getElementById(`pc-${safeId}-f`);
-    if(ic&&iif&&ic.value!==''&&iif.value!=='') jogos[j.id]={c:parseInt(ic.value),f:parseInt(iif.value)};
+    if(ic&&iif&&ic.value!==''&&iif.value!=='') jogos[j.id]={c:numPl(ic.value),f:numPl(iif.value)};
   });
   const payload={grupos:JSON.parse(JSON.stringify(pGs)),jogos,especiais:esp,salvoEm:new Date().toISOString()};
   if(modoFirebase){
@@ -950,6 +972,8 @@ async function carregarResultados() {
     const r=localStorage.getItem('bolaoResultados');
     if(r){ const d=JSON.parse(r); resultados=d; if(d.jogosMata) jogosMataState=d.jogosMata; }
   }
+  // Migra dados salvos antes da correção do id duplicado da Final (F1 → FIN1)
+  jogosMataState.forEach(j=>{ if(j.id==='F1'&&j.fase==='final') j.id='FIN1'; });
   // Atualizar labels do mata-mata com seleções definidas pelo admin
   atualizarLabelsMata();
 }
@@ -988,9 +1012,8 @@ function calcPontos(palpites, res) {
     const classificados=Object.entries(resG).filter(([,p])=>p<=2).map(([s])=>s);
     Object.entries(pal).forEach(([sel,pos])=>{
       if(resG[sel]===undefined) return;
-      if(resG[sel]===pos){ ptGrupos+=pos===1?3:pos===2?2:0; }
+      if(resG[sel]===pos){ ptGrupos+=pos===1?3:pos===2?2:1; }
       else if(pos<=2&&classificados.includes(sel)){ ptGrupos+=1; }
-      else if(pos===3&&resG[sel]===3){ ptGrupos+=1; }
     });
   });
 
@@ -1056,6 +1079,10 @@ async function renderRanking() {
 // ══════════════════════════════════════════
 async function renderVerPalpites() {
   const c=document.getElementById('ver-container');
+  if(prazoOk()&&!isAdmin){
+    c.innerHTML=`<div class="empty"><div class="em">🙈</div><p>Os palpites de todos ficam visíveis após o prazo<br><strong style="color:var(--laranja)">${DEADLINE_TXT}</strong><br><span style="font-size:.78rem">Assim ninguém copia ninguém 😉</span></p></div>`;
+    return;
+  }
   c.innerHTML='<div class="empty"><div class="em">⏳</div><p>Carregando...</p></div>';
   let lista=[];
   if(modoFirebase){
@@ -1085,7 +1112,7 @@ async function renderVerPalpites() {
 
     const jogosMH=jogosMataState.filter(j=>jgs[j.id]&&j.c&&j.f).map(j=>{
       const v=jgs[j.id];
-      return `<span class="pal-jogo">${j.c.split(' ')[0]} <span class="placar">${v.c}×${v.f}</span> ${j.f.split(' ')[0]}</span>`;
+      return `<span class="pal-jogo">${escH(j.c.split(' ')[0])} <span class="placar">${escH(v.c+'×'+v.f)}</span> ${escH(j.f.split(' ')[0])}</span>`;
     }).join('');
 
     const espH=ESPECIAIS_DATA.filter(e=>esp[e.id]).map(e=>`<span class="pal-sel">${e.emoji} ${escH(esp[e.id])}</span>`).join('');
@@ -1153,16 +1180,29 @@ function renderAdminGrupos() {
     const div=document.createElement('div'); div.className='admin-jogo-card';
     const vSalvo=resultados.jogos?.[j.id]||{};
     div.innerHTML=`<div style="font-size:.68rem;font-weight:700;letter-spacing:1px;color:var(--cinza);margin-bottom:8px">
-        <span class="fase-label ${j.fase}">${faseLbls2[j.fase]||j.fase}</span> ${j.label}
+        <span class="fase-label ${escH(j.fase)}">${escH(faseLbls2[j.fase]||j.fase)}</span> ${escH(j.label)}
       </div>
       <div class="admin-jogo-row" style="flex-wrap:wrap;gap:8px;">
-        <input type="text" class="admin-placar-input" id="am-${safeId}-nc" style="width:130px;font-size:.8rem;text-align:left;" placeholder="🏳 Seleção casa" value="${j.c||''}">
+        <input type="text" class="admin-placar-input" id="am-${safeId}-nc" style="width:130px;font-size:.8rem;text-align:left;" placeholder="🏳 Seleção casa" value="${escH(j.c||'')}">
         <input type="number" class="admin-placar-input" id="am-${safeId}-rc" min="0" max="20" placeholder="–" value="${vSalvo.c!==undefined?vSalvo.c:''}">
         <span style="color:var(--cinza);font-weight:700">×</span>
         <input type="number" class="admin-placar-input" id="am-${safeId}-rf" min="0" max="20" placeholder="–" value="${vSalvo.f!==undefined?vSalvo.f:''}">
-        <input type="text" class="admin-placar-input" id="am-${safeId}-nf" style="width:130px;font-size:.8rem;text-align:left;" placeholder="🏳 Seleção fora" value="${j.f||''}">
+        <input type="text" class="admin-placar-input" id="am-${safeId}-nf" style="width:130px;font-size:.8rem;text-align:left;" placeholder="🏳 Seleção fora" value="${escH(j.f||'')}">
       </div>`;
     cm.appendChild(div);
+  });
+
+  // Resultados — especiais
+  const ce=document.getElementById('admin-esp-res'); if(!ce) return; ce.innerHTML='';
+  ESPECIAIS_DATA.forEach(e=>{
+    const d=document.createElement('div'); d.className='esp-card';
+    d.innerHTML=`<div class="esp-icon">${e.emoji}</div><label>${e.label}</label>
+      <select id="resp-${e.id}">
+        <option value="">— A definir —</option>
+        ${TODAS_SELS.map(s=>`<option value="${s}">${s}</option>`).join('')}
+      </select>`;
+    ce.appendChild(d);
+    if(resultados.especiais?.[e.id]) d.querySelector('select').value=resultados.especiais[e.id];
   });
 }
 
@@ -1178,7 +1218,7 @@ async function salvarResultados() {
   const jogos={};
   JOGOS_GRUPOS.forEach(j=>{
     const ic=document.getElementById(`arj-${j.id}-c`); const iif=document.getElementById(`arj-${j.id}-f`);
-    if(ic&&iif&&ic.value!==''&&iif.value!=='') jogos[j.id]={c:parseInt(ic.value),f:parseInt(iif.value)};
+    if(ic&&iif&&ic.value!==''&&iif.value!=='') jogos[j.id]={c:numPl(ic.value),f:numPl(iif.value)};
   });
 
   // Jogos mata-mata — nomes + placares
@@ -1188,13 +1228,14 @@ async function salvarResultados() {
     const nf=document.getElementById(`am-${safeId}-nf`)?.value.trim()||j.f||'';
     const rc=document.getElementById(`am-${safeId}-rc`); const rf=document.getElementById(`am-${safeId}-rf`);
     const novo={...j,c:nc,f:nf};
-    if(rc&&rf&&rc.value!==''&&rf.value!=='') jogos[j.id]={c:parseInt(rc.value),f:parseInt(rf.value)};
+    if(rc&&rf&&rc.value!==''&&rf.value!=='') jogos[j.id]={c:numPl(rc.value),f:numPl(rf.value)};
     return novo;
   });
   jogosMataState=novosMata;
 
-  // Especiais — pode ser preenchido aqui também
-  const especiais=resultados.especiais||{};
+  // Especiais — coletados dos selects do painel
+  const especiais={};
+  ESPECIAIS_DATA.forEach(e=>{ const el=document.getElementById('resp-'+e.id); if(el&&el.value) especiais[e.id]=el.value; });
 
   const payload={grupos,jogos,jogosMata:novosMata,especiais,atualizadoEm:new Date().toISOString()};
   resultados=payload;
@@ -1221,6 +1262,7 @@ function toast(msg) {
 }
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;
+  if(document.getElementById('tela-login').style.display!=='flex') return; // só na tela de login
   const fc=document.getElementById('form-cad');
   if(fc.style.display!=='none') fazerCadastro(); else fazerLogin();
 });

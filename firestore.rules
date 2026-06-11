@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Usuários: leitura liberada (ranking e "ver palpites"); criação liberada (cadastro).
+    // Após o prazo — 12/06/2026 23h59 Brasília (13/06/2026 02:59 UTC, epoch 1781319540000) —
+    // o campo "palpites" fica imutável no servidor, mesmo que alguém mude o relógio do PC.
+    match /usuarios/{uid} {
+      allow read, create: if true;
+      allow update: if request.time.toMillis() < 1781319540000
+        || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['palpites']);
+      allow delete: if false;
+    }
+
+    // Resultados inseridos pelo admin (sem Firebase Auth não há como restringir só a ele).
+    match /config/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

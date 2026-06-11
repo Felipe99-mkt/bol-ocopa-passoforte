@@ -769,6 +769,7 @@ function aba(nome,btn) {
 // ══════════════════════════════════════════
 function sid(s) { return s.replace(/[^a-zA-Z0-9]/g,''); }
 function esc(s) { return s.replace(/'/g,"\\'"); }
+function escH(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function renderGrupos() {
   const c=document.getElementById('grupos-container'); c.innerHTML='';
@@ -1040,7 +1041,7 @@ async function renderRanking() {
         <div class="rk-item ${u.nome===usuarioLogado?'me':''}">
           <div class="rk-pos ${cores[i]||''}">${i+1}</div>
           <div class="rk-nome">
-            ${u.nome}${u.nome===usuarioLogado?' <span class="badge-eu">você</span>':''}
+            ${escH(u.nome)}${u.nome===usuarioLogado?' <span class="badge-eu">você</span>':''}
             ${!u.palpites?'<span class="badge-sem">sem palpite</span>':''}
             ${u.palpites?`<div class="rk-detalhe">Grupos: ${u._pts.grupos}pts · Jogos: ${u._pts.jogos}pts · Especiais: ${u._pts.especiais}pts · Placares exatos: ${u._pts.exatos}</div>`:''}
           </div>
@@ -1074,7 +1075,7 @@ async function renderVerPalpites() {
       const itens=Object.entries(gp).sort((a,b)=>a[1]-b[1]);
       if(!itens.length) return '';
       return `<div class="pal-mini-grupo"><div class="pal-mini-titulo">Grupo ${g.l}</div>
-        <div class="pal-sels">${itens.map(([s,p])=>`<span class="pal-sel"><span class="pal-pos">${pos2e[p]||p+'°'}</span>${s}</span>`).join('')}</div></div>`;
+        <div class="pal-sels">${itens.map(([s,p])=>`<span class="pal-sel"><span class="pal-pos">${pos2e[p]||p+'°'}</span>${escH(s)}</span>`).join('')}</div></div>`;
     }).filter(Boolean).join('');
 
     const jogosGH=JOGOS_GRUPOS.filter(j=>jgs[j.id]).map(j=>{
@@ -1087,10 +1088,10 @@ async function renderVerPalpites() {
       return `<span class="pal-jogo">${j.c.split(' ')[0]} <span class="placar">${v.c}×${v.f}</span> ${j.f.split(' ')[0]}</span>`;
     }).join('');
 
-    const espH=ESPECIAIS_DATA.filter(e=>esp[e.id]).map(e=>`<span class="pal-sel">${e.emoji} ${esp[e.id]}</span>`).join('');
+    const espH=ESPECIAIS_DATA.filter(e=>esp[e.id]).map(e=>`<span class="pal-sel">${e.emoji} ${escH(esp[e.id])}</span>`).join('');
 
     return `<div class="pal-card">
-      <div class="pal-card-head"><h3>⚽ ${u.nome}</h3><span class="pal-pontos">${pts.total} pts</span></div>
+      <div class="pal-card-head"><h3>⚽ ${escH(u.nome)}</h3><span class="pal-pontos">${pts.total} pts</span></div>
       <div class="pal-card-body">
         ${gruposH}
         ${jogosGH?`<div class="pal-mini-grupo"><div class="pal-mini-titulo">Placares — Grupos</div><div class="pal-sels">${jogosGH}</div></div>`:''}

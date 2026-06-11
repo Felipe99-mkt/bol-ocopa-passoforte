@@ -8,7 +8,13 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  const saved = JSON.parse(localStorage.getItem('bolaoConfig') || '{}');
+  // Config padrão do bolão — todos conectam direto, sem tela de setup
+  const DEFAULT_CFG = {
+    apiKey: "AIzaSyAMTKnZhqklaLnogTsTfGsA8H1LEeeXh2c",
+    projectId: "meu-bolao-2026-6b9b8",
+    appId: "1:38496859428:web:a3884fdd4c80d774772fb1"
+  };
+  const saved = Object.assign({}, DEFAULT_CFG, JSON.parse(localStorage.getItem('bolaoConfig') || '{}'));
   if (saved.apiKey) {
     try {
       const app = initializeApp({ apiKey: saved.apiKey, projectId: saved.projectId, appId: saved.appId });
@@ -620,8 +626,8 @@ document.addEventListener('firebaseReady', () => {
   const modoLocal = localStorage.getItem('bolaoModo')==='local';
   const cfg = JSON.parse(localStorage.getItem('bolaoConfig')||'{}');
   if (modoLocal) { iniciarApp(false); return; }
-  if (!cfg.apiKey) { document.getElementById('tela-setup').style.display='flex'; return; }
   if (window._firebaseOk) { modoFirebase=true; db=window._db; fs=window._fs; iniciarApp(true); }
+  else if (!cfg.apiKey) { document.getElementById('tela-setup').style.display='flex'; }
   else iniciarApp(false);
 });
 setTimeout(()=>{ if(!window._firebaseReady){window._firebaseReady=true;document.dispatchEvent(new Event('firebaseReady'));} },2500);
